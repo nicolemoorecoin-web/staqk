@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
-    "@next-auth/prisma-adapter": "^1.0.7",
     "@pandacss/dev": "^0.54.0",
     "@pandacss/preset-panda": "^0.54.0",
     "@supabase/ssr": "^0.7.0",
