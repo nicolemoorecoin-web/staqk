@@ -13,7 +13,7 @@ import {
   FiTrash2,
 } from "react-icons/fi";
 import { TbMailOpened } from "react-icons/tb"; // <-- read state icon
-import { useWalletStore } from "src/lib/walletStore";
+
 
 /**
  * Notification shape (demo):
