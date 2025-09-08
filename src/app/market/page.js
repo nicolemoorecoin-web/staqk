@@ -5,8 +5,6 @@ import {
   FaChevronDown, FaChevronUp, FaChartLine, FaEye, FaPlus, FaExchangeAlt
 } from "react-icons/fa";
 import { LineChart, Line, ResponsiveContainer, Tooltip } from "recharts";
-// ❌ remove broken store import — page doesn't use it
-// import { useWalletStore } from "../..lib/walletStore";
 
 // --- DEMO DATA ---
 const COINS = [
