@@ -1,0 +1,92 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") 
+  directUrl = env("DIRECT_URL")   
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String?
+  email          String?  @unique
+  emailVerified  DateTime?
+  password       String?  // for Credentials auth (hashed)
+  image          String?
+
+  accounts       Account[]
+  sessions       Session[]
+  balances       Balance[]
+  transactions   Transaction[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Balance {
+  id        String   @id @default(cuid())
+  userId    String
+  total     Decimal  @default(0)
+  buckets   Json     @default("{}") // { crypto, cash, earnWallet, staking }
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+enum TxType {
+  DEPOSIT
+  WITHDRAW
+  TRANSFER
+  PURCHASE
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  userId    String
+  type      TxType
+  asset     String?     // e.g. BTC/USDT
+  amount    Decimal
+  currency  String?     // USD, etc
+  note      String?
+  status    String?     // success/pending/failed
+  timestamp DateTime @default(now())
+
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
