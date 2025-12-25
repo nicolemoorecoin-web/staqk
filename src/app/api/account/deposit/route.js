@@ -1,48 +1,95 @@
-// src/app/api/account/deposit/route.js
-import { NextResponse } from 'next/server';
-import { getServiceSupabase } from '@/lib/supabase';
+// src/app/api/tx/deposit/route.js
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../../../lib/auth";
+import prisma from "../../../../lib/prisma";
+import { TxType, TxStatus } from "@prisma/client";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function POST(req) {
-  try {
-    const { userId, amount, bucket = 'cash', asset = 'USD', note = null } = await req.json();
-    if (!userId || !amount) return NextResponse.json({ error: 'Missing userId or amount' }, { status: 400 });
-
-    const supa = getServiceSupabase();
-
-    // 1) Insert transaction
-    const { error: txErr } = await supa.from('Transaction').insert({
-      userId,
-      type: 'DEPOSIT',
-      asset,
-      amount,
-      currency: 'USD',
-      note,
-      status: 'COMPLETED',
-    });
-    if (txErr) throw txErr;
-
-    // 2) Upsert balance (add to total and the bucket)
-    const { data: existing, error: balErr } = await supa
-      .from('Balance')
-      .select('*')
-      .eq('userId', userId)
-      .maybeSingle();
-    if (balErr) throw balErr;
-
-    const buckets = existing?.buckets ?? {};
-    const newBuckets = { ...buckets, [bucket]: Number(buckets[bucket] || 0) + Number(amount) };
-    const newTotal = Number(existing?.total || 0) + Number(amount);
-
-    const { error: upErr } = await supa.from('Balance').upsert({
-      id: existing?.id, userId,
-      total: newTotal,
-      buckets: newBuckets,
-      updatedAt: new Date().toISOString(),
-    });
-    if (upErr) throw upErr;
-
-    return NextResponse.json({ ok: true, total: newTotal, buckets: newBuckets });
-  } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const ctype = req.headers.get("content-type") || "";
+  let payload = {};
+  let file = null;
+
+  if (ctype.includes("application/json")) {
+    payload = await req.json().catch(() => ({}));
+  } else {
+    const form = await req.formData();
+    payload.asset = String(form.get("asset") || "USDT");
+    payload.network = String(form.get("network") || "TRC20");
+    payload.amount = form.get("amount");
+    payload.currency = String(form.get("currency") || "USD");
+    payload.notes = String(form.get("notes") || "");
+    file = form.get("receipt");
+  }
+
+  const {
+    amount,
+    currency = "USD",
+    asset = "USDT",
+    network = "TRC20",
+    notes = "",
+  } = payload;
+
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n <= 0) {
+    return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+  }
+
+  // user + wallet
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    include: { wallet: true },
+  });
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+  let wallet = user.wallet;
+  if (!wallet) wallet = await prisma.wallet.create({ data: { userId: user.id } });
+
+  // admin address lookup (optional)
+  const addr = await prisma.adminAddress.findUnique({
+    where: { asset_network: { asset, network } },
+  });
+
+  let address = null;
+  let meta = null;
+  if (addr?.active) {
+    address = addr.address;
+    meta = { adminAddressId: addr.id, address: addr.address, memo: addr.memo || null };
+  }
+
+  // receipt (optional)
+  let receiptUrl = null;
+  if (file && typeof file.arrayBuffer === "function") {
+    const buf = Buffer.from(await file.arrayBuffer());
+    const mime = file.type || "application/octet-stream";
+    receiptUrl = `data:${mime};base64,${buf.toString("base64")}`;
+  }
+
+  // Create a PENDING tx (no wallet balance change yet)
+  const tx = await prisma.tx.create({
+    data: {
+      walletId: wallet.id,
+      title: `${asset} Deposit`,
+      type: TxType.DEPOSIT,
+      amount: n,
+      currency,
+      status: TxStatus.PENDING,
+      asset,
+      network,
+      address,
+      receiptUrl,
+      notes,
+      meta,
+    },
+  });
+
+  return NextResponse.json({ ok: true, id: tx.id, createdAt: tx.createdAt }, { headers: { "cache-control": "no-store" } });
 }

@@ -10,7 +10,15 @@ const HIDE_ON = ['/'];
 
 export default function AppChrome({ children }) {
   const pathname = usePathname();
-  const hideChrome = HIDE_ON.includes(pathname);
+
+  // hide header/footer on auth pages
+  const hideChrome =
+    pathname === '/' || pathname.startsWith('/signup'); // add more like '/reset' if needed
+
+  if (hideChrome) {
+    // render page content only (no header/footer)
+    return <>{children}</>;
+  }
 
   return (
     <>

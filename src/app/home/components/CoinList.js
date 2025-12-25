@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
-import useCryptoWS from "./useCryptoWS"; // 👈 must sit in the same folder
+import useCryptoWS from "./useCryptoWS";
+import { useAppPrefs } from "../../components/AppPrefsProvider";
 
 // Use your existing /public/crypto icons
 const COIN_ICONS = {
@@ -21,7 +22,6 @@ const COIN_ICONS = {
   TRX: "/crypto/trx.svg",
 };
 
-// Static seed (names/icons); live prices will override
 const ALL_COINS = [
   { symbol: "BTC", name: "Bitcoin",  price: 114651.15, change: 1.47 },
   { symbol: "BCH", name: "Bitcoin Cash", price: 549.3, change: 4.77 },
@@ -40,7 +40,6 @@ const ALL_COINS = [
   { symbol: "TRX", name: "TRON", price: 0.124, change: 1.34 },
 ];
 
-// Your demo watchlist (symbols)
 const WATCHLIST = ["BTC", "ETH", "XRP"];
 
 function mergeLive(base, liveMap) {
@@ -53,17 +52,19 @@ function mergeLive(base, liveMap) {
 }
 
 export default function CoinList() {
-  const [activeTab, setActiveTab] = useState("watchlist"); // "watchlist" | "coin"
+  const { t, formatMoney } = useAppPrefs();
+
+  const [activeTab, setActiveTab] = useState("coin"); // "watchlist" | "coin"
   const [sortBy, setSortBy] = useState("change"); // "price" | "change"
   const [sortDir, setSortDir] = useState("desc");
 
-  // Subscribe to all symbols we show
   const symbols = useMemo(() => ALL_COINS.map((c) => c.symbol), []);
-  const live = useCryptoWS(symbols); // { BTC:{price,changePct24h}, ... }
+  const live = useCryptoWS(symbols);
 
-  const view = activeTab === "watchlist"
-    ? ALL_COINS.filter((c) => WATCHLIST.includes(c.symbol))
-    : ALL_COINS;
+  const view =
+    activeTab === "watchlist"
+      ? ALL_COINS.filter((c) => WATCHLIST.includes(c.symbol))
+      : ALL_COINS;
 
   const merged = useMemo(() => mergeLive(view, live), [view, live]);
 
@@ -79,7 +80,10 @@ export default function CoinList() {
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortBy(col); setSortDir("desc"); }
+    else {
+      setSortBy(col);
+      setSortDir("desc");
+    }
   };
 
   return (
@@ -94,17 +98,19 @@ export default function CoinList() {
               }`}
               onClick={() => setActiveTab("coin")}
             >
-              Coin
+              {t("coin")}
             </button>
+
             <button
               className={`text-lg font-bold pb-1 border-b-2 transition ${
                 activeTab === "watchlist" ? "text-white border-blue-500" : "text-gray-400 border-transparent"
               }`}
               onClick={() => setActiveTab("watchlist")}
             >
-              Watchlist
+              {t("watchlist")}
             </button>
           </div>
+
           <div className="hidden sm:flex items-center gap-3 text-xs text-gray-400">
             <span className="bg-[#1f2540] px-2 py-0.5 rounded-md font-bold">24h</span>
             <span className="opacity-70">Live</span>
@@ -113,12 +119,14 @@ export default function CoinList() {
 
         {/* Table header */}
         <div className="flex items-center px-4 py-2 text-gray-400 text-sm font-semibold">
-          <div className="flex-1">Coin</div>
+          <div className="flex-1">{t("coin")}</div>
+
           <button className="w-28 text-right hover:text-white" onClick={() => toggleSort("change")}>
-            24 hours {sortBy === "change" && (sortDir === "desc" ? "▼" : "▲")}
+            {t("hours24")} {sortBy === "change" && (sortDir === "desc" ? "▼" : "▲")}
           </button>
+
           <button className="w-36 text-right hover:text-white" onClick={() => toggleSort("price")}>
-            Price {sortBy === "price" && (sortDir === "desc" ? "▼" : "▲")}
+            {t("price")} {sortBy === "price" && (sortDir === "desc" ? "▼" : "▲")}
           </button>
         </div>
 
@@ -126,6 +134,8 @@ export default function CoinList() {
         <div className="divide-y divide-blue-900/20">
           {sorted.map((coin) => {
             const up = (coin.change ?? 0) >= 0;
+            const priceUsd = Number(coin.price ?? 0);
+
             return (
               <div key={coin.symbol} className="flex items-center px-4 py-3 hover:bg-[#11182c] transition">
                 <div className="flex-1 flex items-center gap-3 min-w-0">
@@ -139,11 +149,13 @@ export default function CoinList() {
                     <div className="text-xs text-gray-400">{coin.symbol}</div>
                   </div>
                 </div>
+
                 <div className={`w-28 text-right font-bold ${up ? "text-green-400" : "text-red-400"}`}>
                   {up ? "+" : ""}{Math.abs(coin.change ?? 0).toFixed(2)}%
                 </div>
+
                 <div className="w-36 text-right text-gray-100 font-bold">
-                  ${Number(coin.price ?? 0).toLocaleString()}
+                  {formatMoney(priceUsd, { maximumFractionDigits: priceUsd < 1 ? 4 : 2 })}
                 </div>
               </div>
             );

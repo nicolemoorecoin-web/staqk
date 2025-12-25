@@ -1386,3 +1386,112 @@ body {
   box-sizing: border-box;
   margin-bottom: 28px;
 }
+/* ---------- Global theme application ---------- */
+
+/* Body colors follow the theme variables */
+body {
+  background-color: var(--app-bg);
+  color: var(--app-text);
+}
+
+/* In LIGHT mode: make "text-white" etc use DARK text so it's readable */
+html:not(.dark) .text-white {
+  color: #111827 !important; /* slate-900 style */
+}
+
+html:not(.dark) .text-gray-200 {
+  color: #4b5563 !important;
+}
+
+html:not(.dark) .text-gray-300 {
+  color: #4b5563 !important;
+}
+
+html:not(.dark) .text-gray-400 {
+  color: #6b7280 !important;
+}
+
+html:not(.dark) .text-gray-500 {
+  color: #6b7280 !important;
+}
+/* ────────────────────────── THEME VARIABLES ────────────────────────── */
+/* Light mode defaults */
+:root {
+  --app-bg: #f4f5fb;
+  --app-text: #111827;
+  --card-bg: #ffffff;
+  --card-soft: #eef2ff;
+  --accent: #2563eb;
+}
+
+/* Dark mode overrides when html has class="dark" */
+html.dark {
+  --app-bg: #050814;
+  --app-text: #e5e7eb;
+  --card-bg: #151a28;
+  --card-soft: #10141c;
+  --accent: #60a5fa;
+}
+
+/* Apply theme to whole page */
+body {
+  background-color: var(--app-bg);
+  color: var(--app-text);
+}
+
+/* Generic helpers (you already used these on Me page) */
+.bg-app {
+  background-color: var(--app-bg);
+}
+.card-app {
+  background-color: var(--card-bg);
+}
+
+/* Map your common Tailwind background classes to theme
+   So ANY page using them automatically switches light/dark. */
+
+/* Main app backgrounds: often used as page bg */
+.bg-\[\#10141c\],
+.bg-\[\#0f1424\],
+.bg-\[\#0d1220\] {
+  background-color: var(--app-bg) !important;
+}
+
+/* Card backgrounds (account tiles, panels, etc.) */
+.bg-\[\#151a28\] {
+  background-color: var(--card-bg) !important;
+}
+
+/* If you have other dark colors you use everywhere, add them here in the same way:
+   .bg-\[\#xxxxxx\] { background-color: var(--card-bg) !important; }
+*/
+
+/* ─────────── Text overrides so white text is readable in light mode ─────────── */
+
+/* In LIGHT mode: make the usual "white" text classes dark so they can be seen. */
+html:not(.dark) .text-white {
+  color: #111827 !important; /* dark slate */
+}
+html:not(.dark) .text-gray-50,
+html:not(.dark) .text-gray-100,
+html:not(.dark) .text-gray-200 {
+  color: #1f2933 !important;
+}
+html:not(.dark) .text-gray-300,
+html:not(.dark) .text-gray-400 {
+  color: #4b5563 !important;
+}
+html:not(.dark) .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+/* Optional: helpers if you ever want dark-only / light-only elements */
+.dark-only {
+  display: none;
+}
+html.dark .dark-only {
+  display: block;
+}
+html.dark .light-only {
+  display: none;
+}

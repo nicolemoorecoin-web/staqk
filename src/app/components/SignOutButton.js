@@ -1,22 +1,34 @@
-'use client';
-import { useRouter } from 'next/navigation';
+// src/app/components/SignOutButton.jsx
+"use client";
 
-export default function SignOutButton({ className = '', children = 'Sign out' }) {
-  const router = useRouter();
+import { signOut } from "next-auth/react";
 
-  function handleSignOut() {
-    document.cookie = 'staqk_auth=; Max-Age=0; path=/;';  // remove cookie
-    try {
-      localStorage.removeItem('staqk_wallet');
-      localStorage.removeItem('staqk_auth');
-      localStorage.removeItem('staqk_user');
-    } catch {}
-    router.push('/');
-  }
+export default function SignOutButton({ className = "" }) {
+  const handleSignOut = () => {
+    // 🔁 IMPORTANT CHANGE:
+    // Do NOT clear the "staqk_wallet" key anymore.
+    // We want balances + investments to persist across logout/login
+    // on this browser for the same user.
+
+    // If you ever want to support multiple users on the same device
+    // without leaking data, we can switch to a per-user key later,
+    // e.g. "staqk_wallet_<userId>".
+
+    signOut({ callbackUrl: "/login" });
+  };
 
   return (
-    <button type="button" onClick={handleSignOut} className={className || 'w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg'}>
-      {children}
+    <button
+      onClick={handleSignOut}
+      className={
+        "w-full py-3 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-semibold text-center transition " +
+        className
+      }
+    >
+      Sign out
     </button>
   );
 }
+
+
+

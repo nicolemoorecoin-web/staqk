@@ -1,271 +1,278 @@
+// src/app/transactions/page.js
 "use client";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-// replace your imports with these
+import Link from "next/link";
 import {
   FiArrowLeft,
-  FiBell,
-  FiTrendingUp,
+  FiSearch,
+  FiFilter,
+  FiDownload,   // deposit
+  FiUpload,     // withdraw
+  FiArrowRight, // transfer
   FiCheckCircle,
-  FiInfo,
-  FiMail,
-  FiTrash2,
+  FiClock,
+  FiXCircle,
 } from "react-icons/fi";
-import { TbMailOpened } from "react-icons/tb"; // <-- read state icon
 
+// adjust this path if your folder layout is different
+import { useWalletStore } from "../../../lib/walletStore";
 
-/**
- * Notification shape (demo):
- * { id, type: 'price'|'tx'|'system', title, body, ts, read?: boolean, meta?: any }
- */
+/** Map store tx → UI shape (keeps UI tolerant to small store changes) */
+function castTx(t) {
+  const type = (t.type || "TRANSFER").toUpperCase();
+  return {
+    id: t.id,
+    type,                      // "DEPOSIT" | "WITHDRAW" | "TRANSFER"
+    title:
+      t.title ||
+      (type === "DEPOSIT"
+        ? `${(t.bucket || "Wallet").toUpperCase()} Deposit`
+        : type === "WITHDRAW"
+        ? `Withdrawal${t.bucket ? " — " + t.bucket : ""}`
+        : t.to
+        ? `Transfer ${t.from || ""} → ${t.to}`
+        : "Transfer"),
+    note: t.note || "",
+    amount: Number(t.amount) || 0,     // deposits usually +, withdrawals/transfer −
+    currency: t.currency || "USD",
+    status: (t.status || "success").toLowerCase(), // success|pending|failed
+    ts: t.ts || Date.now(),
+  };
+}
 
-const DEMO = [
-  {
-    id: "n1",
-    type: "price",
-    title: "Ethereum (ETH) price is approaching $4,300",
-    body: "24h change +5.3%. Your alert threshold: $4,250.",
-    ts: Date.now() - 1000 * 60 * 15,
-    read: false,
-    meta: { symbol: "ETH", price: 4290 },
-  },
-  {
-    id: "n2",
-    type: "tx",
-    title: "USDT Deposit successful",
-    body: "Amount: $350.00 · TRC20 · 19:54:05",
-    ts: Date.now() - 1000 * 60 * 60,
-    read: false,
-  },
-  {
-    id: "n3",
-    type: "system",
-    title: "Security tip: Enable 2FA",
-    body: "Protect your account with authenticator app or SMS.",
-    ts: Date.now() - 1000 * 60 * 90,
-    read: true,
-  },
-  {
-    id: "n4",
-    type: "tx",
-    title: "Card purchase pending",
-    body: "Merchant: Aurora Coffee · -$8.20",
-    ts: Date.now() - 1000 * 60 * 60 * 7,
-    read: true,
-  },
-];
-
-export default function NotificationsPage() {
+export default function TransactionsPage() {
   const router = useRouter();
-  const [items, setItems] = useState(DEMO);
-  const [filter, setFilter] = useState("all"); // all | price | tx | system
-  const [loading, setLoading] = useState(false);
 
-  const filtered = useMemo(() => {
-    if (filter === "all") return items;
-    return items.filter((n) => n.type === filter);
-  }, [items, filter]);
+  // read all transactions from the store
+  const storeTx = useWalletStore((s) => s.tx) || [];
 
-  const unreadCount = items.filter((n) => !n.read).length;
+  // filters
+  const [typeFilter, setTypeFilter] = useState("ALL");   // ALL|DEPOSIT|WITHDRAW|TRANSFER
+  const [statusFilter, setStatusFilter] = useState("ALL"); // ALL|success|pending|failed
+  const [query, setQuery] = useState("");
 
-  function markAllRead() {
-    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
-  }
-  function clearAll() {
-    setItems([]);
-  }
-  function toggleRead(id) {
-    setItems((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: !n.read } : n))
-    );
-  }
-  function removeOne(id) {
-    setItems((prev) => prev.filter((n) => n.id !== id));
-  }
+  // derive filtered + sorted list
+  const tx = useMemo(() => {
+    const list = storeTx.map(castTx).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+    return list.filter((t) => {
+      if (typeFilter !== "ALL" && t.type !== typeFilter) return false;
+      if (statusFilter !== "ALL" && t.status !== statusFilter) return false;
+      if (query.trim()) {
+        const q = query.toLowerCase();
+        const hay =
+          `${t.id} ${t.title} ${t.note} ${t.type} ${t.currency}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [storeTx, typeFilter, statusFilter, query]);
+
+  // group by day (Today / Yesterday / date)
+  const groups = useMemo(() => {
+    const byDay = {};
+    for (const it of tx) {
+      const d = new Date(it.ts || Date.now());
+      const k = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
+      (byDay[k] ||= []).push(it);
+    }
+    return Object.entries(byDay)
+      .sort((a, b) => new Date(b[0]) - new Date(a[0]))
+      .map(([k, arr]) => ({ label: labelForDay(new Date(k)), items: arr }));
+  }, [tx]);
 
   return (
     <main className="min-h-[100dvh] bg-[#10141c]">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-[#10141c]/95 backdrop-blur border-b border-gray-800">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.back()}
-              className="text-gray-300 hover:text-white"
-              aria-label="Back"
-            >
-              <FiArrowLeft className="h-5 w-5" />
-            </button>
-            <h1 className="text-white text-lg font-bold">Notifications</h1>
-            {unreadCount > 0 && (
-              <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
-                {unreadCount} new
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={markAllRead}
-              className="text-xs font-semibold text-blue-300 hover:text-blue-200"
-            >
-              Mark all read
-            </button>
-            <button
-              onClick={clearAll}
-              className="text-xs font-semibold text-red-300 hover:text-red-200"
-              title="Clear all"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="px-2 pb-2">
-          <div className="flex gap-2 bg-[#161b29] rounded-xl p-1 mx-2">
-            {[
-              { k: "all", label: "All", icon: <FiBell /> },
-              { k: "price", label: "Price Alerts", icon: <FiTrendingUp /> },
-              { k: "tx", label: "Transactions", icon: <FiCheckCircle /> },
-              { k: "system", label: "System", icon: <FiInfo /> },
-            ].map((t) => (
-              <button
-                key={t.k}
-                onClick={() => setFilter(t.k)}
-                className={`flex-1 py-2 rounded-lg font-semibold text-sm flex items-center justify-center gap-2
-                  ${filter === t.k ? "bg-blue-600 text-white" : "text-gray-300"}`}
-              >
-                {t.icon} {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
+      <div className="sticky top-0 z-10 bg-[#10141c]/95 backdrop-blur border-b border-gray-800 px-4 py-3 flex items-center gap-3">
+        <button onClick={() => router.back()} className="text-gray-300 hover:text-white">
+          <FiArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="text-white text-lg font-bold">All Transactions</h1>
+        <div className="ml-auto" />
       </div>
 
-      {/* List */}
-      <div className="max-w-2xl mx-auto p-3 sm:p-4">
-        {loading ? (
-          <Skeleton />
-        ) : filtered.length === 0 ? (
+      <div className="max-w-xl mx-auto p-4 space-y-5">
+        {/* Filters */}
+        <section className="bg-[#151a28] rounded-2xl border border-blue-900/30 p-3 sm:p-4">
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="relative flex-1 min-w-[180px]">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search id, title…"
+                className="w-full bg-[#0f1424] border border-blue-900/30 rounded-lg pl-9 pr-3 py-2 text-white"
+              />
+            </div>
+
+            <div className="inline-flex items-center gap-2">
+              <FiFilter className="text-gray-400" />
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="bg-[#0f1424] border border-blue-900/30 rounded-lg px-2.5 py-2 text-white"
+              >
+                <option value="ALL">All types</option>
+                <option value="DEPOSIT">Deposits</option>
+                <option value="WITHDRAW">Withdrawals</option>
+                <option value="TRANSFER">Transfers</option>
+              </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-[#0f1424] border border-blue-900/30 rounded-lg px-2.5 py-2 text-white"
+              >
+                <option value="ALL">Any status</option>
+                <option value="success">Successful</option>
+                <option value="pending">Pending</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        {/* List */}
+        {tx.length === 0 ? (
           <EmptyState />
         ) : (
-          <ul className="space-y-3">
-            {filtered.map((n) => (
-              <li
-                key={n.id}
-                className="bg-[#0f1424] border border-blue-900/30 rounded-xl px-3 py-3 sm:px-4 sm:py-4"
-              >
-                <div className="flex items-start gap-3">
-                  <IconBadge type={n.type} read={n.read} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-white font-semibold truncate">
-                        {n.title}
-                      </p>
-                      {!n.read && (
-                        <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
-                      )}
-                    </div>
-                    <p className="text-gray-300 text-sm mt-0.5">
-                      {n.body}
-                    </p>
-                    <div className="text-xs text-gray-500 mt-2">
-                      {timeAgo(n.ts)}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <button
-                      onClick={() => toggleRead(n.id)}
-                      className="text-gray-300 hover:text-white"
-                      title={n.read ? "Mark as unread" : "Mark as read"}
-                    >
-                      {n.read ? (
-                        <TbMailOpened className="h-5 w-5" />
-                      ) : (
-                        <FiMail className="h-5 w-5" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => removeOne(n.id)}
-                      className="text-gray-300 hover:text-red-300"
-                      title="Delete"
-                    >
-                      <FiTrash2 className="h-5 w-5" />
-                    </button>
-                  </div>
+          <section className="bg-[#141a29] rounded-2xl border border-blue-900/30 overflow-hidden">
+            {groups.map((g) => (
+              <div key={g.label} className="px-3 sm:px-4 py-3 sm:py-4">
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  {g.label}
                 </div>
-              </li>
+                <ul className="flex flex-col gap-2">
+                  {g.items.map((t) => (
+                    <TransactionRow key={t.id} tx={t} />
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </section>
         )}
+
+        {/* Link back to Dashboard */}
+        <div className="text-center text-sm text-gray-400">
+          <Link href="/home" className="text-blue-300 hover:text-blue-200 font-semibold">
+            ← Back to Dashboard
+          </Link>
+        </div>
       </div>
     </main>
   );
 }
 
-/* --- Small pieces --- */
+/* ───────── row & helpers ───────── */
 
-function IconBadge({ type, read }) {
-  const base =
-    "w-10 h-10 rounded-full flex items-center justify-center shrink-0";
-  if (type === "price")
-    return (
-      <div className={`${base} ${read ? "bg-blue-500/10" : "bg-blue-500/20"} text-blue-300`}>
-        <FiTrendingUp />
+function TransactionRow({ tx }) {
+  const isOutflow = tx.amount < 0;
+
+  return (
+    <li className="w-full bg-[#0f1424] rounded-xl px-3 py-3 sm:px-4 sm:py-3 flex items-center gap-3 border border-blue-900/20">
+      {/* icon */}
+      <div
+        className={[
+          "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
+          tx.type === "DEPOSIT"
+            ? "bg-green-500/15 text-green-300"
+            : tx.type === "WITHDRAW"
+            ? "bg-red-500/15 text-red-300"
+            : "bg-blue-500/15 text-blue-300",
+        ].join(" ")}
+      >
+        {iconFor(tx.type)}
       </div>
+
+      {/* main */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="text-white font-semibold truncate">{tx.title}</p>
+          {statusPill(tx.status)}
+        </div>
+        <p className="text-gray-400 text-xs truncate">
+          {tx.note || new Date(tx.ts).toLocaleString()}
+        </p>
+      </div>
+
+      {/* amount */}
+      <div className={`text-right font-bold ${isOutflow ? "text-red-400" : "text-green-400"}`}>
+        {isOutflow ? "-" : "+"}
+        {formatMoney(Math.abs(tx.amount), tx.currency)}
+      </div>
+    </li>
+  );
+}
+
+function iconFor(type) {
+  const t = (type || "TRANSFER").toUpperCase();
+  const cls = "text-xl";
+  if (t === "DEPOSIT") return <FiDownload className={cls} />;
+  if (t === "WITHDRAW") return <FiUpload className={cls} />;
+  return <FiArrowRight className={cls} />;
+}
+
+function statusPill(status = "success") {
+  const s = (status || "success").toLowerCase();
+  const base = "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold";
+  if (s === "pending")
+    return (
+      <span className={`${base} bg-yellow-500/15 text-yellow-300`}>
+        <FiClock className="text-xs" /> Pending
+      </span>
     );
-  if (type === "tx")
+  if (s === "failed")
     return (
-      <div className={`${base} ${read ? "bg-green-500/10" : "bg-green-500/20"} text-green-300`}>
-        <FiCheckCircle />
-      </div>
+      <span className={`${base} bg-red-500/15 text-red-300`}>
+        <FiXCircle className="text-xs" /> Failed
+      </span>
     );
   return (
-    <div className={`${base} ${read ? "bg-yellow-500/10" : "bg-yellow-500/20"} text-yellow-300`}>
-      <FiInfo />
-    </div>
+    <span className={`${base} bg-green-500/15 text-green-300`}>
+      <FiCheckCircle className="text-xs" /> Successful
+    </span>
   );
+}
+
+function formatMoney(n, currency = "USD") {
+  try {
+    return n.toLocaleString(undefined, {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 2,
+    });
+  } catch {
+    return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  }
+}
+
+function labelForDay(d) {
+  const today = new Date();
+  const y = new Date(Date.now() - 86400000);
+  const same = (a, b) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+  if (same(d, today)) return "Today";
+  if (same(d, y)) return "Yesterday";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 function EmptyState() {
   return (
-    <div className="bg-[#0f1424] border border-blue-900/30 rounded-xl p-8 text-center text-gray-400">
-      <FiBell className="mx-auto mb-3 h-8 w-8 text-gray-500" />
-      No notifications yet
+    <div className="bg-[#151a28] rounded-2xl border border-blue-900/30 p-8 text-center">
+      <div className="text-white font-semibold text-lg">No transactions yet</div>
+      <p className="text-gray-400 text-sm mt-1">
+        Deposits, withdrawals and transfers will show up here.
+      </p>
+      <Link
+        href="/home"
+        className="inline-block mt-4 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+      >
+        Go to Dashboard
+      </Link>
     </div>
   );
-}
-
-function Skeleton() {
-  return (
-    <div className="space-y-3">
-      {[...Array(3)].map((_, i) => (
-        <div
-          key={i}
-          className="bg-[#0f1424] border border-blue-900/30 rounded-xl px-4 py-4"
-        >
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/5" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 w-3/4 bg-white/5 rounded" />
-              <div className="h-3 w-1/2 bg-white/5 rounded" />
-              <div className="h-3 w-1/3 bg-white/5 rounded" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function timeAgo(ts) {
-  const d = new Date(ts || Date.now());
-  const s = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return d.toLocaleString();
 }

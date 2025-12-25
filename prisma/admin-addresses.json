@@ -1,0 +1,15 @@
+const { PrismaClient } = require('@prisma/client');
+const fs = require('fs');
+const path = require('path');
+const prisma = new PrismaClient();
+
+async function main() {
+  const rows = await prisma.adminAddress.findMany();
+  const outPath = path.join(__dirname, 'admin-addresses.json');
+  fs.writeFileSync(outPath, JSON.stringify(rows, null, 2), 'utf8');
+  console.log('Exported', rows.length, 'rows ->', outPath);
+}
+
+main()
+  .catch((e) => { console.error(e); process.exitCode = 1; })
+  .finally(() => prisma.$disconnect());

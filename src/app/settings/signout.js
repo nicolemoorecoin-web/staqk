@@ -1,4 +1,5 @@
 'use client';
+import { signOut } from "next-auth/react";
 import { useRouter } from 'next/navigation';
 
 export function SignOutButton({ className = '' }) {
@@ -12,9 +13,11 @@ export function SignOutButton({ className = '' }) {
     router.push('/');                                        // back to login
   }
 
-  return (
-    <button onClick={handle} className={className || 'px-4 py-2 rounded-lg bg-red-600 text-white'}>
-      Log out
+ 
+    return (
+    <button onClick={() => signOut({ callbackUrl: "/login" })}
+            className="rounded-lg px-3 py-2 bg-slate-800 text-slate-100 hover:bg-slate-700">
+      Sign out 
     </button>
   );
 }

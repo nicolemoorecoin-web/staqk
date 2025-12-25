@@ -1,8 +1,8 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
+# ===============================
+# Dependencies
+# ===============================
+node_modules/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -10,37 +10,91 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+# ===============================
+# Next.js
+# ===============================
+.next/
+out/
+build/
 
-# next.js
-/.next/
-/out/
+# ===============================
+# Prisma
+# ===============================
+# Prisma client (generated)
+node_modules/.prisma/
 
-# production
-/build
+# Prisma local databases (NEVER COMMIT)
+prisma/dev.db
+prisma/*.db
+prisma/*.db.bak
+prisma/*.db-journal
+prisma/*.db-wal
+prisma/*.db-shm
+prisma/*.db.lock
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
-# misc
-.DS_Store
-*.pem
+# Optional local-only files
+prisma/schema.prisma.bak
+prisma/schema - Copy.prisma
 
-# debug
+# ===============================
+# Environment variables
+# ===============================
+.env
+.env.*
+!.env.example
+.env.local
+# ===============================
+# Vercel
+# ===============================
+.vercel/
+
+# ===============================
+# Logs & Debug
+# ===============================
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
+pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# ===============================
+# OS / Editor
+# ===============================
+.DS_Store
+Thumbs.db
+desktop.ini
 
-# vercel
-.vercel
+# VS Code
+.vscode/
+!.vscode/extensions.json
 
-# typescript
+# ===============================
+# TypeScript
+# ===============================
 *.tsbuildinfo
 next-env.d.ts
 
-## Panda
-styled-system
-styled-system-studio
-/src/generated/prisma
+# ===============================
+# Tests / Coverage
+# ===============================
+coverage/
+
+# ===============================
+# Misc build artifacts
+# ===============================
+dist/
+.cache/
+
+# ===============================
+# Temporary / backups
+# ===============================
+*.bak
+*.tmp
+*.swp
+
+
+# Large media - don't commit
+*.mp4

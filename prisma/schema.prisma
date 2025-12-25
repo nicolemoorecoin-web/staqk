@@ -1,0 +1,254 @@
+
+// ---------- generator & datasource ----------
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- enums ----------
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TxType {
+  DEPOSIT
+  WITHDRAW
+  TRANSFER
+}
+
+enum TxStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+// ---------- models ----------
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String?   @unique
+  name          String?
+  passwordHash  String
+  emailVerified DateTime?
+  role          Role      @default(USER)
+
+  // ✅ your app expects this
+  staqksId      String?   @unique
+
+  // ✅ Profile fields (DB-backed)
+  phone         String?
+  birthdate     DateTime?
+  gender        String?
+  weight        String?
+  height        String?
+  address       String?
+  avatar        String?   // store a dataURL or a URL
+
+  // ✅ Preferences (DB-backed)
+  language       String   @default("en")
+  fiatCurrency   String   @default("USD")
+  cryptoCurrency String   @default("BTC")
+
+  kycStatus     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  wallet   Wallet?
+  sessions Session[]
+  accounts Account[]
+  chatThreads ChatThread[]
+
+}
+
+
+
+
+model Wallet {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique
+
+  cash        Decimal @default(0)
+  crypto      Decimal @default(0)
+  staking     Decimal @default(0)
+  earn        Decimal @default(0)
+  investments Decimal @default(0) // bucket
+  income      Decimal @default(0)
+  expense     Decimal @default(0)
+  total       Decimal @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tx           Tx[]
+  investmentsR Investment[] // ✅ clearer name than "positions"
+}
+
+model Tx {
+  id       String @id @default(cuid())
+  walletId String
+  wallet   Wallet @relation(fields: [walletId], references: [id])
+
+  title    String
+  type     TxType
+  amount   Decimal
+  currency String   @default("USD")
+  status   TxStatus @default(PENDING)
+
+  asset      String?
+  network    String?
+  address    String?
+  receiptUrl String?
+  notes      String?
+  meta       Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([walletId, createdAt])
+}
+
+model AdminAddress {
+  id        String   @id @default(cuid())
+  asset     String
+  network   String
+  address   String
+  memo      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([asset, network], name: "asset_network")
+}
+
+model Investment {
+  id        String  @id @default(cuid())
+
+  wallet    Wallet  @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  walletId  String
+
+  productId String
+  name      String
+  strategy  String
+  currency  String   @default("USD")
+
+  principal Decimal  @default(0)
+  balance   Decimal  @default(0)
+  pnl       Decimal  @default(0)
+
+  status     String   @default("active")
+  startTs    DateTime @default(now())
+  lastUpdate DateTime @updatedAt
+
+  @@index([walletId, startTs])
+}
+
+// ---------- NextAuth ----------
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Account {
+  id                 String   @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  oauth_token        String?
+  oauth_token_secret String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@index([expires])
+}
+
+enum ChatThreadStatus {
+  OPEN
+  CLOSED
+}
+
+enum ChatSender {
+  USER
+  SUPPORT
+}
+
+enum ChatAttachmentKind {
+  IMAGE
+  FILE
+}
+
+model ChatThread {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    ChatThreadStatus @default(OPEN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages  ChatMessage[]
+
+  @@index([userId, status])
+  @@index([updatedAt])
+}
+
+model ChatMessage {
+  id        String     @id @default(cuid())
+  threadId  String
+  thread    ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  sender    ChatSender
+  text      String?
+
+  createdAt DateTime @default(now())
+
+  attachments ChatAttachment[]
+
+  @@index([threadId, createdAt])
+}
+
+model ChatAttachment {
+  id        String      @id @default(cuid())
+  messageId String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  kind      ChatAttachmentKind @default(FILE)
+  url       String
+  name      String?
+  mime      String?
+  size      Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([messageId])
+}
+
+

@@ -4,28 +4,64 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiCheck } from "react-icons/fi";
 
-const FIAT = ["USD", "EUR", "NGN"];
+const FIAT = ["USD", "EUR", "GBP", "AUD", "JPY", "CAD", "NGN"];
 const CRYPTO = ["BTC", "ETH", "USDT", "SOL"];
 
 export default function CurrencySettingsPage() {
   const router = useRouter();
   const [fiat, setFiat] = useState("USD");
   const [crypto, setCrypto] = useState("BTC");
+  const [err, setErr] = useState(null);
 
   useEffect(() => {
-    const f = localStorage.getItem("pref.fiat");
-    const c = localStorage.getItem("pref.crypto");
-    if (f) setFiat(f);
-    if (c) setCrypto(c);
+    (async () => {
+      try {
+        const r = await fetch("/api/me/preferences", { cache: "no-store" });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok && j.ok) {
+          if (j.fiatCurrency) setFiat(j.fiatCurrency);
+          if (j.cryptoCurrency) setCrypto(j.cryptoCurrency);
+
+          localStorage.setItem("pref.fiat", j.fiatCurrency || "USD");
+          localStorage.setItem("pref.crypto", j.cryptoCurrency || "BTC");
+          return;
+        }
+      } catch {}
+
+      const f = localStorage.getItem("pref.fiat");
+      const c = localStorage.getItem("pref.crypto");
+      if (f) setFiat(f);
+      if (c) setCrypto(c);
+    })();
   }, []);
 
-  function chooseFiat(x) {
-    setFiat(x);
-    localStorage.setItem("pref.fiat", x);
-  }
-  function chooseCrypto(x) {
-    setCrypto(x);
-    localStorage.setItem("pref.crypto", x);
+  async function save(next) {
+    setErr(null);
+
+    // optimistic + local mirror
+    if (next.fiatCurrency) {
+      setFiat(next.fiatCurrency);
+      localStorage.setItem("pref.fiat", next.fiatCurrency);
+    }
+    if (next.cryptoCurrency) {
+      setCrypto(next.cryptoCurrency);
+      localStorage.setItem("pref.crypto", next.cryptoCurrency);
+    }
+
+    // ✅ notify same-tab listeners (global provider)
+    window.dispatchEvent(new CustomEvent("staqk:prefs-updated", { detail: next }));
+
+    try {
+      const r = await fetch("/api/me/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) throw new Error(j.error || "Failed to save");
+    } catch (e) {
+      setErr(e.message || "Could not save");
+    }
   }
 
   return (
@@ -39,16 +75,19 @@ export default function CurrencySettingsPage() {
       </div>
 
       <div className="max-w-xl mx-auto p-4 space-y-6">
-        {/* Fiat */}
         <section>
           <h2 className="text-white font-semibold mb-3">Fiat</h2>
           <div className="grid grid-cols-3 gap-2">
             {FIAT.map((f) => (
               <button
                 key={f}
-                onClick={() => chooseFiat(f)}
+                onClick={() => save({ fiatCurrency: f })}
                 className={`px-3 py-2 rounded-xl border transition
-                  ${fiat === f ? "border-blue-600 bg-blue-600/10 text-white" : "border-blue-900/30 bg-[#151a28] text-gray-200 hover:bg-white/5"}`}
+                  ${
+                    fiat === f
+                      ? "border-blue-600 bg-blue-600/10 text-white"
+                      : "border-blue-900/30 bg-[#151a28] text-gray-200 hover:bg-white/5"
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <span>{f}</span>
@@ -59,16 +98,19 @@ export default function CurrencySettingsPage() {
           </div>
         </section>
 
-        {/* Crypto */}
         <section>
           <h2 className="text-white font-semibold mb-3">Crypto</h2>
           <div className="grid grid-cols-3 gap-2">
             {CRYPTO.map((c) => (
               <button
                 key={c}
-                onClick={() => chooseCrypto(c)}
+                onClick={() => save({ cryptoCurrency: c })}
                 className={`px-3 py-2 rounded-xl border transition
-                  ${crypto === c ? "border-blue-600 bg-blue-600/10 text-white" : "border-blue-900/30 bg-[#151a28] text-gray-200 hover:bg-white/5"}`}
+                  ${
+                    crypto === c
+                      ? "border-blue-600 bg-blue-600/10 text-white"
+                      : "border-blue-900/30 bg-[#151a28] text-gray-200 hover:bg-white/5"
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <span>{c}</span>
@@ -79,8 +121,14 @@ export default function CurrencySettingsPage() {
           </div>
         </section>
 
+        {err && (
+          <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+            {err}
+          </div>
+        )}
+
         <p className="text-xs text-gray-500">
-          Your selections are saved to this device and used as defaults across the app (e.g., Converter).
+          Saved to your account (database) and mirrored locally for fast UI updates.
         </p>
       </div>
     </main>
