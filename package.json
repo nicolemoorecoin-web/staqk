@@ -43,7 +43,7 @@
     "slick-carousel": "^1.8.1",
     "swiper": "^11.2.10",
     "zod": "^4.1.11",
-    "zustand": "^5.0.7"
+    "zustand": "^5.0.7"  
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -68,4 +68,5 @@
   "prisma": {
     "seed": "node prisma/seed.js"
   }
+  
 }
