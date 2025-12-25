@@ -1,17 +1,17 @@
 // src/app/page.js  (SERVER)
 import { getServerSession } from "next-auth";
-import { authOptions } from "../lib/auth";  // <-- note the path
+import { authOptions } from "@/lib/auth";  // <-- note the path
 import { PrismaClient } from "@prisma/client";
 import { redirect } from "next/navigation";
 
 // your client components
-import DashBoard from "./home/components/DashBoard";
-import PromoSlider from "./home/components/PromoSlider";
-import LivePriceBar from "./home/components/LivePriceBar";
-import CoinList from "./home/components/CoinList";
-import TopStocksChart from "./home/components/TopStocksChart";
-import QuickActions from "./home/components/QuickActions";
-import RecentTransactions from "./home/components/RecentTransactions";
+import DashBoard from "@/app/home/components/DashBoard";
+import PromoSlider from "@/app/home/components/PromoSlider";;
+import LivePriceBar from "@/app/home/components/LivePriceBar";
+import CoinList from "@/app/home/components/CoinList";
+import TopStocksChart from "@/app/home/components/TopStocksChart";
+import QuickActions from "@/app/home/components/QuickActions";
+import RecentTransactions from "@/app/home/components/RecentTransactions";
 
 export const dynamic = "force-dynamic";
 const prisma = new PrismaClient();

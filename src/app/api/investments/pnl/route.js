@@ -1,8 +1,8 @@
 // src/app/api/investments/pnl/route.js
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../../../../../lib/auth";
-import prisma from "../../../../../lib/prisma";
+import { authOptions } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 import { Prisma, TxStatus, TxType } from "@prisma/client";
 
 const D = (v) => new Prisma.Decimal(String(v ?? 0));
