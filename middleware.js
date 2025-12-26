@@ -1,20 +1,49 @@
-"use client";
-import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
-import BottomNav from "./BottomNav"; // adjust import
+// middleware.js (project root)
+import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export default function BottomNavGate() {
-  const { data: session, status } = useSession();
-  const pathname = usePathname();
+const PUBLIC_FILE = /\.(.*)$/;
 
-  // hide during loading (optional)
-  if (status === "loading") return null;
+export async function middleware(req) {
+  const { pathname, search } = req.nextUrl;
 
-  // hide if not logged in
-  if (!session) return null;
+  // ✅ Allow Next internals, assets, ALL api routes, and auth pages
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") || // ✅ important
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/images") ||
+    pathname.startsWith("/fonts") ||
+    PUBLIC_FILE.test(pathname) ||
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/" // remove this line if you want "/" protected too
+  ) {
+    return NextResponse.next();
+  }
 
-  // hide on auth pages
-  if (pathname === "/login" || pathname === "/signup") return null;
+  // ✅ Protect matched routes using NextAuth token
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname + search);
+    return NextResponse.redirect(url);
+  }
 
-  return <BottomNav />;
+  return NextResponse.next();
 }
+
+export const config = {
+  matcher: [
+    "/home/:path*",
+    "/account/:path*",
+    "/market/:path*",
+    "/me/:path*",
+    "/transactions/:path*",
+    "/investments/:path*",
+    "/dashboard/:path*",
+    "/support/:path*",
+    "/admin/:path*",
+  ],
+};
