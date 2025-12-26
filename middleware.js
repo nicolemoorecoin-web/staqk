@@ -1,20 +1,20 @@
-// middleware.js
-import { NextResponse } from 'next/server';
+"use client";
+import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
+import BottomNav from "./BottomNav"; // adjust import
 
-const PROTECTED = [/^\/home/, /^\/account/, /^\/market/, /^\/me/];
+export default function BottomNavGate() {
+  const { data: session, status } = useSession();
+  const pathname = usePathname();
 
-export function middleware(req) {
-  if (PROTECTED.some((r) => r.test(req.nextUrl.pathname))) {
-    const has = req.cookies.get('staqk_auth')?.value;
-    if (!has) {
-      const url = new URL('/', req.url);
-      url.searchParams.set('next', req.nextUrl.pathname);
-      return NextResponse.redirect(url);
-    }
-  }
-  return NextResponse.next();
+  // hide during loading (optional)
+  if (status === "loading") return null;
+
+  // hide if not logged in
+  if (!session) return null;
+
+  // hide on auth pages
+  if (pathname === "/login" || pathname === "/signup") return null;
+
+  return <BottomNav />;
 }
-
-export const config = {
-  matcher: ['/((?!_next|api|favicon.ico|images|fonts).*)'],
-};
