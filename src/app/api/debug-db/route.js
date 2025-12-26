@@ -1,35 +1,42 @@
-import { NextResponse } from "next/server";
+// src/app/api/debug-db/route.js
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-function safeParse(urlStr) {
+function safeParse(raw) {
+  const s = (raw ?? "").toString();
+  const out = {
+    exists: !!s,
+    length: s.length,
+    startsWithQuote: s.startsWith('"') || s.startsWith("'"),
+    endsWithQuote: s.endsWith('"') || s.endsWith("'"),
+    hasNewline: s.includes("\n") || s.includes("\r"),
+  };
+
   try {
-    const u = new URL(urlStr);
-    return {
-      ok: true,
-      protocol: u.protocol,
-      host: u.hostname,
-      port: u.port,
-      pathname: u.pathname,
-      username: u.username ? u.username.slice(0, 3) + "***" : "",
-      hasNewline: /\n|\r/.test(urlStr),
-      startsWithQuote: /^["']/.test(urlStr),
-      endsWithQuote: /["']$/.test(urlStr),
-      length: urlStr.length,
-    };
+    const u = new URL(s);
+    out.ok = true;
+    out.protocol = u.protocol;
+    out.host = u.host;
+    out.hostname = u.hostname;
+    out.port = u.port;
+    out.pathname = u.pathname;
+    out.username = u.username ? "***" : "";
+    out.password = u.password ? "***" : "";
   } catch (e) {
-    return { ok: false, parseError: String(e?.message || e) };
+    out.ok = false;
+    out.parseError = String(e?.message || e);
   }
+
+  return out;
 }
 
 export async function GET() {
-  const DATABASE_URL = process.env.DATABASE_URL || "";
-  const DIRECT_URL = process.env.DIRECT_URL || "";
-
-  return NextResponse.json({
+  return Response.json({
     env: {
-      has_DATABASE_URL: !!DATABASE_URL,
-      has_DIRECT_URL: !!DIRECT_URL,
-      DATABASE_URL: safeParse(DATABASE_URL),
-      DIRECT_URL: safeParse(DIRECT_URL),
+      has_DATABASE_URL: !!process.env.DATABASE_URL,
+      has_DIRECT_URL: !!process.env.DIRECT_URL,
+      DATABASE_URL: safeParse(process.env.DATABASE_URL),
+      DIRECT_URL: safeParse(process.env.DIRECT_URL),
     },
   });
 }
