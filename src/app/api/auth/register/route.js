@@ -1,38 +1,42 @@
-// src/app/api/auth/register/route.js
-import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 export async function POST(req) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const name = String(body.name || "").trim();
-    const email = String(body.email || "").trim().toLowerCase();
-    const password = String(body.password || "");
+    const { name, email, password } = await req.json();
 
-    if (!email || !password) {
-      return NextResponse.json({ ok: false, error: "Missing fields" }, { status: 400 });
+    const cleanEmail = String(email || "").trim().toLowerCase();
+    const cleanPassword = String(password || "");
+
+    if (!cleanEmail || cleanPassword.length < 6) {
+      return Response.json(
+        { ok: false, error: "Email and password (min 6 chars) are required." },
+        { status: 400 }
+      );
     }
 
-    const exists = await prisma.user.findUnique({ where: { email } });
+    const exists = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (exists) {
-      return NextResponse.json({ ok: false, error: "Email in use" }, { status: 409 });
+      return Response.json({ ok: false, error: "Email already in use." }, { status: 409 });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(cleanPassword, 10);
 
     const user = await prisma.user.create({
       data: {
-        email,
-        name: name || null,
+        email: cleanEmail,
+        name: name ? String(name).trim() : null,
         passwordHash,
         wallet: { create: {} },
       },
       select: { id: true },
     });
 
-    return NextResponse.json({ ok: true, id: user.id });
+    return Response.json({ ok: true, id: user.id });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e?.message || "Server error" }, { status: 500 });
+    return Response.json(
+      { ok: false, error: "Register failed", detail: String(e?.message || e) },
+      { status: 500 }
+    );
   }
 }

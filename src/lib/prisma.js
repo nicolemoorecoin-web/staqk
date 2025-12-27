@@ -1,20 +1,17 @@
-// src/lib/prisma.js
 import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis;
 
-const prismaClient =
+const prisma =
   globalForPrisma.__prisma ||
   new PrismaClient({
     log: ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.__prisma = prismaClient;
-}
+if (process.env.NODE_ENV !== "production") globalForPrisma.__prisma = prisma;
 
-// ✅ support BOTH import styles:
+// ✅ Support BOTH styles:
 // import prisma from "@/lib/prisma"
 // import { prisma } from "@/lib/prisma"
-export const prisma = prismaClient;
-export default prismaClient;
+export default prisma;
+export { prisma };
